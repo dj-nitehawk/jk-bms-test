@@ -49,6 +49,9 @@ bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
 
     currentPos += 3;
     var rawVal = response.ReadShort(currentPos);
+    var isCharging = Convert.ToBoolean(rawVal & 0xFF00); //get MSB and convert it to bool
+    Console.WriteLine($"Is Charging: {isCharging}");
+
     rawVal &= (1 << 15) - 1; //unset the MSB with a bitmask
     var currentAmps = rawVal / 100f;
     currentAmpsQueue.Enqueue(currentAmps);
@@ -65,6 +68,10 @@ bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
 
     var availableCapacity = capacitySetting / 100f * capacityPct;
     Console.WriteLine($"available capacity: {availableCapacity:0.0} Ah");
+
+    //var timeLeft = availableCapacity / avgCurrentAmps;
+    //var tSpan = TimeSpan.FromHours(timeLeft);
+    //Console.WriteLine($"Time Left: {tSpan.Hours}:{tSpan.Minutes}");
 
     await Task.Delay(1000);
     bms.QueryData();
