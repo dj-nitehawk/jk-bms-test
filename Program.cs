@@ -1,18 +1,21 @@
 ﻿using SerialPortLib;
 using System.Globalization;
 
+var cmd = CommandBytesFromHex("4E5700130000000006030000000000006800000129");
 var bms = new SerialPortInput();
 bms.SetPort("/dev/ttyUSB0", 115200);
-bms.Connect();
 
-bms.MessageReceived += (object _, MessageReceivedEventArgs args) =>
+bms.ConnectionStatusChanged += (object _, ConnectionStatusChangedEventArgs e) =>
+{
+    if (e.Connected)
+        bms.SendMessage(cmd);
+};
+
+bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
 {
     Console.Clear();
-    Console.WriteLine();
-    Console.WriteLine();
-    Console.WriteLine();
 
-    var response = args.Data[11..]; //skip the first 10 bytes
+    var response = e.Data[11..]; //skip the first 10 bytes
     var cellCount = response[1] / 3; //pos 1 is total cell bytes length. 3 bytes per cell.
     if (cellCount is 0 or > 16) return;
     Console.WriteLine($"cell count:{cellCount}");
@@ -57,24 +60,12 @@ bms.MessageReceived += (object _, MessageReceivedEventArgs args) =>
 
     var availableCapacity = Convert.ToDouble(capacitySetting) / 100 * capacityPct;
     Console.WriteLine($"available capacity: {availableCapacity:000.0} Ah");
+
+    await Task.Delay(1000);
+    bms.SendMessage(cmd);
 };
 
-var cmd = CommandBytesFromHex("4E5700130000000006030000000000006800000129");
-
-while (true)
-{
-    try
-    {
-        bms.SendMessage(cmd);
-    }
-    catch (Exception x)
-    {
-        Console.Clear();
-        Console.WriteLine(x.Message);
-        Console.ReadLine();
-    }
-    await Task.Delay(2000);
-}
+bms.Connect();
 
 static byte[] CommandBytesFromHex(string hexString)
 {
