@@ -46,8 +46,10 @@ bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
     Console.WriteLine($"pack voltage: {packVoltage:00.0} V");
 
     currentPos += 3;
-    var currentAmps = response.ReadShort(currentPos); //this value is not right :-(
-    Console.WriteLine($"current: {currentAmps} <-wrong!");
+    var rawVal = response.ReadShort(currentPos);
+    rawVal &= (1 << 15) - 1; //unset the MSB with a bitmask
+    var currentAmps = rawVal / 100f;
+    Console.WriteLine($"current: {currentAmps:0.0} A");
 
     currentPos += 3;
     var capacityPct = Convert.ToInt16(response[currentPos]);
