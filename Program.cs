@@ -1,7 +1,7 @@
 ﻿using SerialPortLib;
 using System.Globalization;
 
-var currentAmpsQueue = new LimitedQueue<float>(10); //avg value over 10 readings (~10secs)
+var recentAmpReadings = new AmpValQueue(10); //avg value over 10 readings (~10secs)
 
 var bms = new SerialPortInput();
 bms.SetPort("/dev/ttyUSB0", 115200);
@@ -53,9 +53,9 @@ bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
     Console.WriteLine($"Is Charging: {isCharging}");
 
     rawVal &= (1 << 15) - 1; //unset the MSB with a bitmask
-    var currentAmps = rawVal / 100f;
-    currentAmpsQueue.Enqueue(currentAmps);
-    var avgCurrentAmps = currentAmpsQueue.Average();
+    var ampVal = rawVal / 100f;
+    recentAmpReadings.Enqueue(ampVal);
+    var avgCurrentAmps = recentAmpReadings.GetAverage();
     Console.WriteLine($"current: {avgCurrentAmps:0.0} A");
 
     currentPos += 3;
@@ -101,20 +101,34 @@ public static class Extensions
     }
 }
 
-public sealed class LimitedQueue<T> : Queue<T>
+public sealed class AmpValQueue : Queue<float>
 {
     public int FixedCapacity { get; }
-    public LimitedQueue(int fixedCapacity)
+    public AmpValQueue(int fixedCapacity)
     {
         FixedCapacity = fixedCapacity;
     }
 
-    public new void Enqueue(T item)
+    public new void Enqueue(float val)
     {
-        base.Enqueue(item);
-        if (Count > FixedCapacity)
+        if (val > 0)
         {
-            Dequeue();
+            base.Enqueue(val);
+            if (Count > FixedCapacity)
+            {
+                Dequeue();
+            }
         }
+        else
+        {
+            Clear();
+        }
+    }
+
+    public float GetAverage()
+    {
+        return Count > 0
+               ? this.Average()
+               : 0;
     }
 }
