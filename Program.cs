@@ -22,13 +22,13 @@ bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
 
     Console.WriteLine($"cell count:{cellCount}");
 
-    short currentPos = 3;
+    ushort currentPos = 3;
     for (int i = 1; currentPos <= response.Length - 2 && i <= cellCount; i++)
     {
         //cell voltage groups (of 3 bytes) start at pos 2
         //first cell voltage starts at position 3 (pos 2 is cell number). voltage value is next 2 bytes.
         // ex: .....,1,X,X,2,Y,Y,3,Z,Z
-        var voltage = response.ReadShort(currentPos) / 1000f;
+        var voltage = response.Read2Bytes(currentPos) / 1000f;
         Console.WriteLine($"cell {i}: {voltage:0.000} V");
 
         if (i < cellCount)
@@ -36,20 +36,20 @@ bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
     }
 
     currentPos += 3;
-    var mosTemp = response.ReadShort(currentPos);
+    var mosTemp = response.Read2Bytes(currentPos);
     currentPos += 3;
-    var probe1Temp = response.ReadShort(currentPos);
+    var probe1Temp = response.Read2Bytes(currentPos);
     currentPos += 3;
-    var probe2Temp = response.ReadShort(currentPos);
+    var probe2Temp = response.Read2Bytes(currentPos);
     Console.WriteLine($"mos temp: {mosTemp} C | t1: {probe1Temp} C | t2: {probe2Temp} C");
 
     currentPos += 3;
-    var packVoltage = response.ReadShort(currentPos) / 100f;
+    var packVoltage = response.Read2Bytes(currentPos) / 100f;
     Console.WriteLine($"pack voltage: {packVoltage:00.0} V");
 
     currentPos += 3;
-    var rawVal = response.ReadShort(currentPos);
-    var isCharging = Convert.ToBoolean(rawVal & 0xFF00); //get MSB and convert it to bool
+    var rawVal = response.Read2Bytes(currentPos);
+    var isCharging = (rawVal & 0xFFFF0000); //get MSB and convert it to bool
     Console.WriteLine($"Is Charging: {isCharging}");
 
     rawVal &= (1 << 15) - 1; //unset the MSB with a bitmask
@@ -59,11 +59,11 @@ bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
     Console.WriteLine($"current: {avgCurrentAmps:0.0} A");
 
     currentPos += 3;
-    var capacityPct = Convert.ToInt16(response[currentPos]);
+    var capacityPct = Convert.ToUInt16(response[currentPos]);
     Console.WriteLine($"capacity: {capacityPct} %");
 
     currentPos += 103;
-    var capacitySetting = response.ReadInt(currentPos);
+    var capacitySetting = response.Read4Bytes(currentPos);
     Console.WriteLine($"pack capacity: {capacitySetting} Ah");
 
     var availableCapacity = capacitySetting / 100f * capacityPct;
@@ -88,16 +88,16 @@ public static class Extensions
         port.SendMessage(Convert.FromHexString(commandHex));
     }
 
-    public static short ReadShort(this byte[] input, short startPos)
+    public static ushort Read2Bytes(this byte[] input, ushort startPos)
     {
         var hex = Convert.ToHexString(input, startPos, 2);
-        return short.Parse(hex, NumberStyles.HexNumber);
+        return ushort.Parse(hex, NumberStyles.HexNumber);
     }
 
-    public static int ReadInt(this byte[] input, short startPos)
+    public static uint Read4Bytes(this byte[] input, ushort startPos)
     {
         var hex = Convert.ToHexString(input, startPos, 4);
-        return int.Parse(hex, NumberStyles.HexNumber);
+        return uint.Parse(hex, NumberStyles.HexNumber);
     }
 }
 
