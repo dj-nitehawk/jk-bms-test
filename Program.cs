@@ -22,36 +22,34 @@ bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
 
     Console.WriteLine($"cell count:{cellCount}");
 
-    ushort currentPos = 3;
-    for (int i = 1; currentPos <= response.Length - 2 && i <= cellCount; i++)
+    ushort pos = 3;
+    for (int i = 1; pos <= response.Length - 2 && i <= cellCount; i++)
     {
         //cell voltage groups (of 3 bytes) start at pos 2
         //first cell voltage starts at position 3 (pos 2 is cell number). voltage value is next 2 bytes.
         // ex: .....,1,X,X,2,Y,Y,3,Z,Z
-        var voltage = response.Read2Bytes(currentPos) / 1000f;
+        var voltage = response.Read2Bytes(pos) / 1000f;
         Console.WriteLine($"cell {i}: {voltage:0.000} V");
 
         if (i < cellCount)
-            currentPos += 3;
+            pos += 3;
     }
 
-    currentPos += 3;
-    var mosTemp = response.Read2Bytes(currentPos);
-    currentPos += 3;
-    var probe1Temp = response.Read2Bytes(currentPos);
-    currentPos += 3;
-    var probe2Temp = response.Read2Bytes(currentPos);
+    pos += 3;
+    var mosTemp = response.Read2Bytes(pos);
+    pos += 3;
+    var probe1Temp = response.Read2Bytes(pos);
+    pos += 3;
+    var probe2Temp = response.Read2Bytes(pos);
     Console.WriteLine($"mos temp: {mosTemp} C | t1: {probe1Temp} C | t2: {probe2Temp} C");
 
-    currentPos += 3;
-    var packVoltage = response.Read2Bytes(currentPos) / 100f;
+    pos += 3;
+    var packVoltage = response.Read2Bytes(pos) / 100f;
     Console.WriteLine($"pack voltage: {packVoltage:00.0} V");
 
-    currentPos += 3;
-    var rawVal = response.Read2Bytes(currentPos);
-    var isCharging = Convert.ToBoolean(
-        int.Parse(
-            Convert.ToString(rawVal, 2).PadLeft(16, '0')[..1])); //pick first bit of padded 16 bit binary representation and turn it in to a bool
+    pos += 3;
+    var rawVal = response.Read2Bytes(pos);
+    var isCharging = Convert.ToBoolean(int.Parse(Convert.ToString(rawVal, 2).PadLeft(16, '0')[..1])); //pick first bit of padded 16 bit binary representation and turn it in to a bool
     Console.WriteLine($"Is Charging: {isCharging}");
 
     rawVal &= (1 << 15) - 1; //unset the MSB with a bitmask
@@ -60,20 +58,26 @@ bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
     var avgCurrentAmps = recentAmpReadings.GetAverage();
     Console.WriteLine($"current: {avgCurrentAmps:0.0} A");
 
-    currentPos += 3;
-    var capacityPct = Convert.ToUInt16(response[currentPos]);
+    pos += 3;
+    var capacityPct = Convert.ToUInt16(response[pos]);
     Console.WriteLine($"capacity: {capacityPct} %");
 
-    currentPos += 103;
-    var capacitySetting = response.Read4Bytes(currentPos);
-    Console.WriteLine($"pack capacity: {capacitySetting} Ah");
+    pos += 103;
+    var packCapacity = response.Read4Bytes(pos);
+    Console.WriteLine($"pack capacity: {packCapacity} Ah");
 
-    var availableCapacity = capacitySetting / 100f * capacityPct;
+    var availableCapacity = packCapacity / 100f * capacityPct;
     Console.WriteLine($"available capacity: {availableCapacity:0.0} Ah");
 
-    //var timeLeft = availableCapacity / avgCurrentAmps;
-    //var tSpan = TimeSpan.FromHours(timeLeft);
-    //Console.WriteLine($"Time Left: {tSpan.Hours}:{tSpan.Minutes}");
+    var timeLeft = 0f;
+
+    if (isCharging)
+        timeLeft = (packCapacity - availableCapacity) / avgCurrentAmps;
+    else
+        timeLeft = availableCapacity / avgCurrentAmps;
+
+    var tSpan = TimeSpan.FromHours(timeLeft);
+    Console.WriteLine($"time left: {tSpan.Hours:00} Hrs {tSpan.Minutes:00} Mins");
 
     await Task.Delay(1000);
     bms.QueryData();
