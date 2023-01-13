@@ -41,24 +41,24 @@ bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
     var probe2Temp = response.ReadShort(currentPos);
     Console.WriteLine($"mos temp: {mosTemp} C | t1: {probe1Temp} C | t2: {probe2Temp} C");
 
-    //currentPos += 3;
-    //var packVoltage = Convert.ToDecimal(response.ReadValue(currentPos, 2)) / 100;
-    //Console.WriteLine($"pack voltage: {packVoltage:00.0} V");
+    currentPos += 3;
+    var packVoltage = response.ReadShort(currentPos) / 100f;
+    Console.WriteLine($"pack voltage: {packVoltage:00.0} V");
 
-    //currentPos += 3;
-    //var currentAmps = Convert.ToDecimal(response.ReadValue(currentPos, 2)) / 1000; //this value is not right :-(
-    //Console.WriteLine($"current: {currentAmps:00.0} <-wrong!");
+    currentPos += 3;
+    var currentAmps = response.ReadShort(currentPos); //this value is not right :-(
+    Console.WriteLine($"current: {currentAmps} <-wrong!");
 
-    //currentPos += 3;
-    //var capacityPct = response.ReadValue(currentPos, 1);
-    //Console.WriteLine($"capacity: {capacityPct} %");
+    currentPos += 3;
+    var capacityPct = Convert.ToInt16(response[currentPos]);
+    Console.WriteLine($"capacity: {capacityPct} %");
 
-    //currentPos += 103;
-    //var capacitySetting = response.ReadValue(currentPos, 4);
-    //Console.WriteLine($"pack capacity: {capacitySetting} Ah");
+    currentPos += 103;
+    var capacitySetting = response.ReadInt(currentPos);
+    Console.WriteLine($"pack capacity: {capacitySetting} Ah");
 
-    //var availableCapacity = Convert.ToDouble(capacitySetting) / 100 * capacityPct;
-    //Console.WriteLine($"available capacity: {availableCapacity:000.0} Ah");
+    var availableCapacity = capacitySetting / 100f * capacityPct;
+    Console.WriteLine($"available capacity: {availableCapacity:0.0} Ah");
 
     await Task.Delay(1000);
     bms.QueryData();
@@ -83,12 +83,7 @@ public static class Extensions
 
     public static int ReadInt(this byte[] input, short startPos)
     {
-        return BitConverter.ToInt32(input, startPos);
+        var hex = Convert.ToHexString(input, startPos, 4);
+        return int.Parse(hex, NumberStyles.HexNumber);
     }
-
-    //public static short ReadValue(this byte[] data, int startPos, short bytesToRead)
-    //{
-    //    var endPos = startPos + bytesToRead;
-    //    return short.Parse(BitConverter.ToString(data[startPos..endPos]).Replace("-", ""), NumberStyles.HexNumber);
-    //}
 }
