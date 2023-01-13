@@ -49,7 +49,7 @@ bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
 
     currentPos += 3;
     var rawVal = response.Read2Bytes(currentPos);
-    var isCharging = (rawVal & 0xFFFF0000); //get MSB and convert it to bool
+    var isCharging = bool.Parse(Convert.ToString(rawVal, 2).PadLeft(16, '0')[..1]); //pick first bit of padded 16 bit binary representation and turn it in to a bool
     Console.WriteLine($"Is Charging: {isCharging}");
 
     rawVal &= (1 << 15) - 1; //unset the MSB with a bitmask
