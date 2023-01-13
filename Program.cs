@@ -1,14 +1,12 @@
 ﻿using SerialPortLib;
-using System.Globalization;
 
-var cmd = CommandBytesFromHex("4E5700130000000006030000000000006800000129");
 var bms = new SerialPortInput();
 bms.SetPort("/dev/ttyUSB0", 115200);
 
 bms.ConnectionStatusChanged += (object _, ConnectionStatusChangedEventArgs e) =>
 {
     if (e.Connected)
-        bms.SendMessage(cmd);
+        bms.QueryData();
 };
 
 bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
@@ -62,30 +60,20 @@ bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
     Console.WriteLine($"available capacity: {availableCapacity:000.0} Ah");
 
     await Task.Delay(1000);
-    bms.SendMessage(cmd);
+    bms.QueryData();
 };
 
 bms.Connect();
 
-static byte[] CommandBytesFromHex(string hexString)
-{
-    if (hexString.Length % 2 != 0)
-    {
-        throw new ArgumentException("The binary key cannot have an odd number of digits: {0}", hexString);
-    }
-
-    byte[] data = new byte[hexString.Length / 2];
-    for (int index = 0; index < data.Length; index++)
-    {
-        string byteValue = hexString.Substring(index * 2, 2);
-        data[index] = byte.Parse(byteValue, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
-    }
-
-    return data;
-}
-
 public static class Extensions
 {
+    const string commandHex = "4E5700130000000006030000000000006800000129";
+
+    public static void QueryData(this SerialPortInput port)
+    {
+        port.SendMessage(Convert.FromHexString(commandHex));
+    }
+
     public static short ReadValue(this byte[] data, int startPos, short bytesToRead)
     {
         var endPos = startPos + bytesToRead;
