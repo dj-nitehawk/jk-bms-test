@@ -1,6 +1,8 @@
 ﻿using SerialPortLib;
 using System.Globalization;
 
+var currentAmpsQueue = new LimitedQueue<float>(10); //avg value over 10 readings (~10secs)
+
 var bms = new SerialPortInput();
 bms.SetPort("/dev/ttyUSB0", 115200);
 
@@ -49,7 +51,9 @@ bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
     var rawVal = response.ReadShort(currentPos);
     rawVal &= (1 << 15) - 1; //unset the MSB with a bitmask
     var currentAmps = rawVal / 100f;
-    Console.WriteLine($"current: {currentAmps:0.0} A");
+    currentAmpsQueue.Enqueue(currentAmps);
+    var avgCurrentAmps = currentAmpsQueue.Average();
+    Console.WriteLine($"current: {avgCurrentAmps:0.0} A");
 
     currentPos += 3;
     var capacityPct = Convert.ToInt16(response[currentPos]);
@@ -87,5 +91,23 @@ public static class Extensions
     {
         var hex = Convert.ToHexString(input, startPos, 4);
         return int.Parse(hex, NumberStyles.HexNumber);
+    }
+}
+
+public sealed class LimitedQueue<T> : Queue<T>
+{
+    public int FixedCapacity { get; }
+    public LimitedQueue(int fixedCapacity)
+    {
+        FixedCapacity = fixedCapacity;
+    }
+
+    public new void Enqueue(T item)
+    {
+        base.Enqueue(item);
+        if (Count > FixedCapacity)
+        {
+            Dequeue();
+        }
     }
 }
