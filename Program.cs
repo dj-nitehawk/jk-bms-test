@@ -71,13 +71,21 @@ bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
 
     var timeLeft = 0f;
 
-    if (isCharging)
-        timeLeft = (packCapacity - availableCapacity) / avgCurrentAmps;
-    else
-        timeLeft = availableCapacity / avgCurrentAmps;
+    if (avgCurrentAmps > 0)
+    {
+        if (isCharging)
+            timeLeft = (packCapacity - availableCapacity) / avgCurrentAmps;
+        else
+            timeLeft = availableCapacity / avgCurrentAmps;
 
-    var tSpan = TimeSpan.FromHours(timeLeft);
-    Console.WriteLine($"time left: {tSpan.Hours:00} Hrs {tSpan.Minutes:00} Mins");
+        var tSpan = TimeSpan.FromHours(timeLeft);
+        var totalHrs = (ushort)tSpan.TotalHours;
+        Console.WriteLine($"time left: {totalHrs} Hrs {tSpan.Minutes} Mins");
+    }
+    else
+    {
+        //set values to 0 on dto.
+    }
 
     await Task.Delay(1000);
     bms.QueryData();
