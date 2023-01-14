@@ -101,6 +101,9 @@ bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
         //set values to 0 on dto.
     }
 
+    var cRate = Math.Round(avgCurrentAmps / packCapacity, 2, MidpointRounding.AwayFromZero);
+    Console.WriteLine($"c-rate: {cRate}");
+
     await Task.Delay(pollFrequencyMillis);
     bms.QueryData();
 };
