@@ -1,6 +1,8 @@
 ﻿using SerialPortLib;
 using System.Globalization;
 
+var pollFrequencyMillis = 1000;
+var cellVoltages = new Dictionary<byte, float>(); //key: cell number //val: cell voltage
 var recentAmpReadings = new AmpValQueue(10); //avg value over 10 readings (~10secs)
 
 var bms = new SerialPortInput();
@@ -10,6 +12,8 @@ bms.ConnectionStatusChanged += (object _, ConnectionStatusChangedEventArgs e) =>
 {
     if (e.Connected)
         bms.QueryData();
+
+    Console.WriteLine($"CONNECTED: {e.Connected}");
 };
 
 bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
@@ -23,18 +27,28 @@ bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
     Console.WriteLine($"cell count:{cellCount}");
 
     ushort pos = 3;
-    for (int i = 1; pos <= response.Length - 2 && i <= cellCount; i++)
+    for (byte i = 1; pos <= response.Length - 2 && i <= cellCount; i++)
     {
         //cell voltage groups (of 3 bytes) start at pos 2
         //first cell voltage starts at position 3 (pos 2 is cell number). voltage value is next 2 bytes.
         // ex: .....,1,X,X,2,Y,Y,3,Z,Z
-        var voltage = response.Read2Bytes(pos) / 1000f;
-        Console.WriteLine($"cell {i}: {voltage:0.000} V");
+        cellVoltages[i] = response.Read2Bytes(pos) / 1000f;
+
+        Console.WriteLine($"cell {i}: {cellVoltages[i]:0.000} V");
 
         if (i < cellCount)
             pos += 3;
     }
 
+    var avgCellVoltage = cellVoltages.Values.Average();
+    var minCell = cellVoltages.MinBy(x => x.Value);
+    var maxCell = cellVoltages.MaxBy(x => x.Value);
+    var cellDiff = maxCell.Value - minCell.Value;
+    Console.WriteLine($"min cell: [{minCell.Key}] {minCell.Value} V");
+    Console.WriteLine($"max cell: [{maxCell.Key}] {maxCell.Value} V");
+    Console.WriteLine($"cell diff: {cellDiff:0.000} V");
+
+    //position is increased by 3 bytes in order to skip the address/code byte
     pos += 3;
     var mosTemp = response.Read2Bytes(pos);
     pos += 3;
@@ -45,12 +59,12 @@ bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
 
     pos += 3;
     var packVoltage = response.Read2Bytes(pos) / 100f;
-    Console.WriteLine($"pack voltage: {packVoltage:00.0} V");
+    Console.WriteLine($"pack voltage: {packVoltage:00.00} V");
 
     pos += 3;
     var rawVal = response.Read2Bytes(pos);
     var isCharging = Convert.ToBoolean(int.Parse(Convert.ToString(rawVal, 2).PadLeft(16, '0')[..1])); //pick first bit of padded 16 bit binary representation and turn it in to a bool
-    Console.WriteLine($"Is Charging: {isCharging}");
+    Console.WriteLine($"charging: {isCharging}");
 
     rawVal &= (1 << 15) - 1; //unset the MSB with a bitmask
     var ampVal = rawVal / 100f;
@@ -87,7 +101,7 @@ bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
         //set values to 0 on dto.
     }
 
-    await Task.Delay(1000);
+    await Task.Delay(pollFrequencyMillis);
     bms.QueryData();
 };
 
