@@ -44,8 +44,8 @@ bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
     var minCell = cellVoltages.MinBy(x => x.Value);
     var maxCell = cellVoltages.MaxBy(x => x.Value);
     var cellDiff = maxCell.Value - minCell.Value;
-    Console.WriteLine($"min cell: [{minCell.Key}] {minCell.Value} V");
-    Console.WriteLine($"max cell: [{maxCell.Key}] {maxCell.Value} V");
+    Console.WriteLine($"min cell: [{minCell.Key}] {minCell.Value:0.000} V");
+    Console.WriteLine($"max cell: [{maxCell.Key}] {maxCell.Value:0.000} V");
     Console.WriteLine($"cell diff: {cellDiff:0.000} V");
 
     //position is increased by 3 bytes in order to skip the address/code byte
