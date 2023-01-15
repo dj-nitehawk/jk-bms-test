@@ -20,9 +20,15 @@ bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
 {
     Console.Clear();
 
+    if (!e.Data.IsValid())
+    {
+        Console.WriteLine("invalid data received!");
+        bms.QueryData();
+        return;
+    }
+
     var response = e.Data[11..]; //skip the first 10 bytes
     var cellCount = response[1] / 3; //pos 1 is total cell bytes length. 3 bytes per cell.
-    if (cellCount is 0 or > 16) return;
 
     Console.WriteLine($"cell count:{cellCount}");
 
@@ -130,6 +136,25 @@ public static class Extensions
     {
         var hex = Convert.ToHexString(input, startPos, 4);
         return uint.Parse(hex, NumberStyles.HexNumber);
+    }
+
+    public static bool IsValid(this byte[] data)
+    {
+        if (data.Length < 8)
+            return false;
+
+        var header = Convert.ToHexString(data, 0, 2);
+
+        if (header is not "4E57")
+            return false;
+
+        //sum up all bytes excluding the last 4 bytes
+        var crc_calc = data[0..^3].Sum(Convert.ToInt32);
+
+        //convert last 2 bytes to hex and get short from that hex
+        var crc_lo = data[^2..^0].Read2Bytes(0);
+
+        return crc_calc == crc_lo;
     }
 }
 
