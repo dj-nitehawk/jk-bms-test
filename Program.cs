@@ -23,6 +23,7 @@ bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
     if (!e.Data.IsValid())
     {
         Console.WriteLine("invalid data received!");
+        await Task.Delay(pollFrequencyMillis);
         bms.QueryData();
         return;
     }
