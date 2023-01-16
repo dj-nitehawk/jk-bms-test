@@ -33,18 +33,16 @@ bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
 
     Console.WriteLine($"cell count:{cellCount}");
 
-    ushort pos = 3;
+    ushort pos = 0;
     for (byte i = 1; pos <= response.Length - 2 && i <= cellCount; i++)
     {
         //cell voltage groups (of 3 bytes) start at pos 2
         //first cell voltage starts at position 3 (pos 2 is cell number). voltage value is next 2 bytes.
         // ex: .....,1,X,X,2,Y,Y,3,Z,Z
-        cellVoltages[i] = response.Read2Bytes(pos) / 1000f;
+        //pos is increased by 3 bytes in order to skip the address/code byte
+        cellVoltages[i] = response.Read2Bytes(pos += 3) / 1000f;
 
         Console.WriteLine($"cell {i}: {cellVoltages[i]:0.000} V");
-
-        if (i < cellCount)
-            pos += 3;
     }
 
     var avgCellVoltage = cellVoltages.Values.Average();
@@ -56,21 +54,15 @@ bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
     Console.WriteLine($"max cell: [{maxCell.Key}] {maxCell.Value:0.000} V");
     Console.WriteLine($"cell diff: {cellDiff:0.000} V");
 
-    //position is increased by 3 bytes in order to skip the address/code byte
-    pos += 3;
-    var mosTemp = response.Read2Bytes(pos);
-    pos += 3;
-    var probe1Temp = response.Read2Bytes(pos);
-    pos += 3;
-    var probe2Temp = response.Read2Bytes(pos);
+    var mosTemp = response.Read2Bytes(pos += 3);
+    var probe1Temp = response.Read2Bytes(pos += 3);
+    var probe2Temp = response.Read2Bytes(pos += 3);
     Console.WriteLine($"mos temp: {mosTemp} C | t1: {probe1Temp} C | t2: {probe2Temp} C");
 
-    pos += 3;
-    var packVoltage = response.Read2Bytes(pos) / 100f;
+    var packVoltage = response.Read2Bytes(pos += 3) / 100f;
     Console.WriteLine($"pack voltage: {packVoltage:00.00} V");
 
-    pos += 3;
-    var rawVal = response.Read2Bytes(pos);
+    var rawVal = response.Read2Bytes(pos += 3);
     var isCharging = Convert.ToBoolean(int.Parse(Convert.ToString(rawVal, 2).PadLeft(16, '0')[..1])); //pick first bit of padded 16 bit binary representation and turn it in to a bool
     Console.WriteLine($"charging: {isCharging}");
 
@@ -80,12 +72,13 @@ bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
     var avgCurrentAmps = recentAmpReadings.GetAverage();
     Console.WriteLine($"current: {avgCurrentAmps:0.0} A");
 
-    pos += 3;
-    var capacityPct = Convert.ToUInt16(response[pos]);
+    var capacityPct = Convert.ToUInt16(response[pos += 3]);
     Console.WriteLine($"capacity: {capacityPct} %");
 
-    pos += 103;
-    var packCapacity = response.Read4Bytes(pos);
+    var isWarning = response.Read2Bytes(pos += 15) > 0;
+    Console.WriteLine($"warning: {isWarning}");
+
+    var packCapacity = response.Read4Bytes(pos += 88);
     Console.WriteLine($"pack capacity: {packCapacity} Ah");
 
     var availableCapacity = packCapacity / 100f * capacityPct;
@@ -103,10 +96,6 @@ bms.MessageReceived += async (object _, MessageReceivedEventArgs e) =>
         var tSpan = TimeSpan.FromHours(timeLeft);
         var totalHrs = (ushort)tSpan.TotalHours;
         Console.WriteLine($"time left: {totalHrs} Hrs {tSpan.Minutes} Mins");
-    }
-    else
-    {
-        //set values to 0 on dto.
     }
 
     var cRate = Math.Round(avgCurrentAmps / packCapacity, 2, MidpointRounding.AwayFromZero);
